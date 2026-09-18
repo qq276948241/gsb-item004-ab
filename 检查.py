@@ -1,79 +1,9 @@
 # -*- coding: utf-8 -*-
 import sys
 
-最少歇息 = 11 * 60
-
-
-def 读出分钟(文本):
-    if not isinstance(文本, str):
-        return None
-    片段 = 文本.split(":")
-    if len(片段) != 2:
-        return None
-    if len(片段[0]) != 2 or len(片段[1]) != 2:
-        return None
-    if (not 片段[0].isdigit()) or (not 片段[1].isdigit()):
-        return None
-    时 = int(片段[0])
-    分 = int(片段[1])
-    if 时 < 0 or 时 > 23 or 分 < 0 or 分 > 59:
-        return None
-    return 时 * 60 + 分
-
-
-def 再读一次分钟(文本):
-    if 文本 is None:
-        return None
-    if 文本.count(":") != 1:
-        return None
-    左右 = 文本.split(":")
-    if len(左右[0]) != 2 or len(左右[1]) != 2:
-        return None
-    if (not 左右[0].isdigit()) or (not 左右[1].isdigit()):
-        return None
-    时数 = int(左右[0])
-    分数 = int(左右[1])
-    if 时数 > 23 or 分数 > 59 or 时数 < 0 or 分数 < 0:
-        return None
-    return 时数 * 60 + 分数
-
-
-def 名字行不行(名字):
-    if 名字 is None or 名字 == "":
-        return False
-    if len(名字) > 4:
-        return False
-    下标 = 0
-    while 下标 < len(名字):
-        单字 = 名字[下标]
-        if not ("\u4e00" <= 单字 <= "\u9fff"):
-            return False
-        下标 = 下标 + 1
-    return True
-
-
-def 凑结束点(标记, 开始, 结束):
-    if 标记 == "跨夜":
-        return 结束 + 24 * 60
-    return 结束
-
-
-def 白班要不要挪到下一天(某人的班, 这一段):
-    有跨夜 = False
-    巡 = 0
-    while 巡 < len(某人的班):
-        if 某人的班[巡]["标记"] == "跨夜":
-            有跨夜 = True
-            break
-        巡 = 巡 + 1
-    if not 有跨夜:
-        return False
-    if 这一段["标记"] != "白班":
-        return False
-    正午 = 12 * 60
-    if 这一段["开始"] < 正午:
-        return True
-    return False
+from 时间换算 import 读出分钟, 凑结束点
+from 班表规则 import 名字行不行
+from 班次分析 import 查一个人
 
 
 def 跑(路径):
@@ -112,7 +42,7 @@ def 跑(路径):
             问题.append((行号, 1, "名字不合规", 名字, ""))
             continue
         开始 = 读出分钟(开始文)
-        结束 = 再读一次分钟(结束文)
+        结束 = 读出分钟(结束文)
         if 开始 is None or 结束 is None:
             问题.append((行号, 2, "时间写不出来", 名字, ""))
             continue
@@ -154,38 +84,7 @@ def 跑(路径):
     人序 = 0
     while 人序 < len(人名列表):
         人名 = 人名列表[人序]
-        各组 = 按人[人名]
-        调整后 = []
-        条序 = 0
-        while 条序 < len(各组):
-            原条 = 各组[条序]
-            新条 = {
-                "名字": 原条["名字"],
-                "开始": 原条["开始"],
-                "结束": 原条["结束"],
-                "行": 原条["行"],
-                "标记": 原条["标记"],
-            }
-            if 白班要不要挪到下一天(各组, 原条):
-                新条["开始"] = 原条["开始"] + 24 * 60
-                新条["结束"] = 原条["结束"] + 24 * 60
-            调整后.append(新条)
-            条序 = 条序 + 1
-        调整后.sort(key=lambda 条: (条["开始"], 条["行"]))
-        下标 = 0
-        while 下标 < len(调整后) - 1:
-            前 = 调整后[下标]
-            后 = 调整后[下标 + 1]
-            if 后["开始"] < 前["结束"]:
-                问题.append((前["行"], 5, "两段班叠在一起", 人名, str(后["行"])))
-            else:
-                空隙 = 后["开始"] - 前["结束"]
-                门槛 = 11 * 60
-                if 空隙 < 门槛 and 空隙 < 最少歇息:
-                    问题.append((前["行"], 6, "歇得不够", 人名, str(后["行"])))
-                elif 空隙 < 最少歇息:
-                    问题.append((前["行"], 6, "歇得不够", 人名, str(后["行"])))
-            下标 = 下标 + 1
+        问题.extend(查一个人(人名, 按人[人名]))
         人序 = 人序 + 1
 
     问题.sort(key=lambda 项: (项[0], 项[1], 项[4]))
